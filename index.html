@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>小說閱讀器</title>
+  <style>
+    body { font-family: sans-serif; background: #f8f8f8; margin: 0; padding: 0; }
+    .container { max-width: 700px; margin: 40px auto; background: #fff; padding: 32px; border-radius: 12px; box-shadow: 0 2px 8px #0001; }
+    h1 { text-align: center; }
+    form { margin-bottom: 32px; }
+    label { display: block; margin-top: 16px; }
+    input, select, textarea { width: 100%; padding: 8px; margin-top: 4px; border-radius: 4px; border: 1px solid #ccc; }
+    button { margin-top: 16px; padding: 10px 24px; border: none; background: #4f8cff; color: #fff; border-radius: 4px; cursor: pointer; }
+    .novel-list { margin-top: 32px; }
+    .novel-item { background: #f0f4ff; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    .novel-title { font-size: 1.2em; font-weight: bold; }
+    .novel-meta { color: #666; font-size: 0.95em; margin-bottom: 8px; }
+    .novel-content { white-space: pre-wrap; }
+    .bottom-nav {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      background: #fff;
+      border-top: 1px solid #ddd;
+      display: flex;
+      justify-content: space-around;
+      padding: 0;
+      z-index: 10;
+    }
+    .bottom-nav button {
+      flex: 1;
+      padding: 16px 0;
+      border: none;
+      background: none;
+      font-size: 1.1em;
+      color: #4f8cff;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .bottom-nav button.active {
+      background: #e6f0ff;
+      font-weight: bold;
+    }
+    .page { min-height: 400px; }
+    @media (max-width: 700px) {
+      .container { padding-bottom: 80px; }
+    }
+    body[data-theme="dark"] {
+      background: #181c1f;
+      color: #e0e0e0;
+    }
+    body[data-theme="dark"] .container {
+      background: #23272b;
+      box-shadow: 0 2px 8px #0008;
+    }
+    body[data-theme="dark"] .novel-item {
+      background: #222c3a;
+    }
+    body[data-theme="dark"] .bottom-nav {
+      background: #23272b;
+      border-top: 1px solid #333;
+    }
+    body[data-theme="dark"] .bottom-nav button {
+      color: #90c4ff;
+    }
+    body[data-theme="dark"] .bottom-nav button.active {
+      background: #1a2330;
+    }
+    .novel-content {
+      font-size: var(--novel-font-size, 18px);
+      line-height: var(--novel-line-height, 1.6);
+    }
+    #page-reader-novel {
+      animation: fadeIn 0.2s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    #readerTools {
+      box-shadow: 0 -2px 12px #0002;
+    }
+    #readerTools.hide {
+      transform: translateY(100%);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>小說閱讀器</h1>
+    <div id="page-reader" class="page">
+      <form id="novelForm">
+        <label for="name">小說名稱</label>
+        <input type="text" id="name" required>
+        <label for="author">作者</label>
+        <input type="text" id="author" required>
+        <label for="category">分類</label>
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+          <select id="category" required style="flex:1"></select>
+          <button type="button" id="editCategoryBtn" style="padding:4px 10px;">管理分類</button>
+        </div>
+        <label for="content">內文</label>
+        <textarea id="content" rows="6" required></textarea>
+        <button type="submit">新增小說</button>
+      </form>
+    </div>
+    <div id="page-library" class="page" style="display:none">
+      <h2>書庫</h2>
+      <div class="novel-list" id="novelList"></div>
+    </div>
+    <div id="page-reader-novel" class="page" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100vw;height:100vh;background:var(--reader-bg,#fff);color:var(--reader-color,#222);overflow:auto;">
+      <div id="readerContent" style="max-width:700px;margin:0 auto;padding:32px 16px 80px 16px;"></div>
+      <div id="readerTools" style="position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,0.98);border-top:1px solid #ddd;padding:12px 0;display:flex;gap:16px;justify-content:center;align-items:center;transition:transform 0.3s;z-index:101;">
+        <label>字體
+          <select id="readerFontSize">
+            <option value="16">極小</option>
+            <option value="18">小</option>
+            <option value="20">中</option>
+            <option value="22">大</option>
+            <option value="24">特大</option>
+            <option value="28">超大</option>
+          </select>
+        </label>
+        <label>行距
+          <select id="readerLineHeight">
+            <option value="1.2">極緊</option>
+            <option value="1.4">緊</option>
+            <option value="1.6">一般</option>
+            <option value="1.8">寬</option>
+            <option value="2.0">特寬</option>
+            <option value="2.4">超寬</option>
+          </select>
+        </label>
+        <label>背景
+          <select id="readerBgColor">
+            <option value="#fff">白</option>
+            <option value="#f5f5dc">米</option>
+            <option value="#222">黑</option>
+            <option value="#e3f2fd">藍</option>
+          </select>
+        </label>
+        <button id="closeReaderBtn" style="margin-left:16px;">關閉</button>
+      </div>
+    </div>
+    <div id="page-settings" class="page" style="display:none">
+      <h2>設定</h2>
+      <div style="margin-bottom: 24px;">
+        <label>主題：
+          <select id="themeSelect">
+            <option value="light">亮色</option>
+            <option value="dark">暗色</option>
+          </select>
+        </label>
+      </div>
+      <div style="margin-bottom: 24px;">
+        <label>字體大小：
+          <input type="range" id="fontSizeRange" min="14" max="28" value="18">
+          <span id="fontSizeValue">18</span> px
+        </label>
+      </div>
+      <div style="margin-bottom: 24px;">
+        <label>行距：
+          <input type="range" id="lineHeightRange" min="1.2" max="2.2" step="0.1" value="1.6">
+          <span id="lineHeightValue">1.6</span>
+        </label>
+      </div>
+    </div>
+    <nav class="bottom-nav">
+      <button type="button" data-page="reader">閱讀器</button>
+      <button type="button" data-page="library">書庫</button>
+      <button type="button" data-page="settings">設定</button>
+    </nav>
+    <!-- 分類管理對話框 -->
+    <dialog id="categoryDialog">
+      <form method="dialog" id="categoryForm" style="min-width:260px;">
+        <h3>管理分類</h3>
+        <ul id="categoryList" style="list-style:none;padding:0;margin-bottom:12px;"></ul>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="newCategoryInput" placeholder="新增分類" style="flex:1;">
+          <button type="button" id="addCategoryBtn">新增</button>
+        </div>
+        <div style="text-align:right;margin-top:12px;">
+          <button type="submit">完成</button>
+        </div>
+      </form>
+    </dialog>
+  </div>
+  <script type="module">
+    // Firebase SDKs
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAX0SfHvlelWWdg7Q-8WHzmWNdKE2vtI3w",
+      authDomain: "to-buy-list-2323b.firebaseapp.com",
+      projectId: "to-buy-list-2323b",
+      storageBucket: "to-buy-list-2323b.firebasestorage.app",
+      messagingSenderId: "363437967200",
+      appId: "1:363437967200:web:798c997017e75d2a278005"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const novelsCol = collection(db, "novels");
+
+    // 新增小說
+    document.getElementById('novelForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('name').value.trim();
+      const author = document.getElementById('author').value.trim();
+      const category = document.getElementById('category').value;
+      const content = document.getElementById('content').value.trim();
+      if (!name || !author || !category || !content) return;
+      await addDoc(novelsCol, { name, author, category, content, createdAt: Date.now() });
+      document.getElementById('novelForm').reset();
+    });
+
+    // 顯示小說列表（即時同步）
+    const novelList = document.getElementById('novelList');
+    const q = query(novelsCol, orderBy('createdAt', 'desc'));
+    let novelsCache = [];
+    onSnapshot(q, (snapshot) => {
+      novelList.innerHTML = '';
+      novelsCache = [];
+      snapshot.forEach(doc => {
+        const { name, author, category, content } = doc.data();
+        novelsCache.push({ id: doc.id, name, author, category, content });
+        novelList.innerHTML += `
+          <div class="novel-item" data-id="${doc.id}" style="cursor:pointer;">
+            <div class="novel-title">${name}</div>
+            <div class="novel-meta">作者：${author}　分類：${category}</div>
+            <div class="novel-content" style="max-height:4.5em;overflow:hidden;">${content}</div>
+          </div>
+        `;
+      });
+    });
+
+    // 分頁切換
+    const pages = ['reader', 'library', 'settings'];
+    const navBtns = document.querySelectorAll('.bottom-nav button');
+    function showPage(page) {
+      pages.forEach(p => {
+        document.getElementById('page-' + p).style.display = (p === page) ? '' : 'none';
+      });
+      navBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.page === page));
+    }
+    navBtns.forEach(btn => {
+      btn.addEventListener('click', () => showPage(btn.dataset.page));
+    });
+    // 預設顯示閱讀器
+    showPage('reader');
+
+    // ====== 設定功能 ======
+    // 主題切換
+    const themeSelect = document.getElementById('themeSelect');
+    themeSelect.addEventListener('change', e => {
+      document.body.setAttribute('data-theme', e.target.value);
+      localStorage.setItem('novel-theme', e.target.value);
+    });
+    // 字體大小
+    const fontSizeRange = document.getElementById('fontSizeRange');
+    const fontSizeValue = document.getElementById('fontSizeValue');
+    fontSizeRange.addEventListener('input', e => {
+      document.documentElement.style.setProperty('--novel-font-size', e.target.value + 'px');
+      fontSizeValue.textContent = e.target.value;
+      localStorage.setItem('novel-font-size', e.target.value);
+    });
+    // 行距
+    const lineHeightRange = document.getElementById('lineHeightRange');
+    const lineHeightValue = document.getElementById('lineHeightValue');
+    lineHeightRange.addEventListener('input', e => {
+      document.documentElement.style.setProperty('--novel-line-height', e.target.value);
+      lineHeightValue.textContent = e.target.value;
+      localStorage.setItem('novel-line-height', e.target.value);
+    });
+    // 載入本地設定
+    window.addEventListener('DOMContentLoaded', () => {
+      const theme = localStorage.getItem('novel-theme') || 'light';
+      document.body.setAttribute('data-theme', theme);
+      themeSelect.value = theme;
+      const fontSize = localStorage.getItem('novel-font-size') || '18';
+      document.documentElement.style.setProperty('--novel-font-size', fontSize + 'px');
+      fontSizeRange.value = fontSize;
+      fontSizeValue.textContent = fontSize;
+      const lineHeight = localStorage.getItem('novel-line-height') || '1.6';
+      document.documentElement.style.setProperty('--novel-line-height', lineHeight);
+      lineHeightRange.value = lineHeight;
+      lineHeightValue.textContent = lineHeight;
+    });
+
+    // ====== 分類管理 ======
+    const defaultCategories = ["奇幻", "愛情", "科幻", "推理", "歷史", "其他"];
+    function getCategories() {
+      return JSON.parse(localStorage.getItem('novel-categories') || 'null') || defaultCategories;
+    }
+    function setCategories(cats) {
+      localStorage.setItem('novel-categories', JSON.stringify(cats));
+    }
+    function renderCategoryOptions() {
+      const cats = getCategories();
+      categorySelect.innerHTML = '';
+      cats.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat;
+        categorySelect.appendChild(opt);
+      });
+    }
+    // 初始化分類下拉
+    const categorySelect = document.getElementById('category');
+    renderCategoryOptions();
+
+    // 分類管理對話框
+    const categoryDialog = document.getElementById('categoryDialog');
+    const categoryList = document.getElementById('categoryList');
+    const newCategoryInput = document.getElementById('newCategoryInput');
+    const addCategoryBtn = document.getElementById('addCategoryBtn');
+    document.getElementById('editCategoryBtn').onclick = () => {
+      renderCategoryList();
+      categoryDialog.showModal();
+    };
+    function renderCategoryList() {
+      const cats = getCategories();
+      categoryList.innerHTML = '';
+      cats.forEach((cat, idx) => {
+        const li = document.createElement('li');
+        li.style.display = 'flex';
+        li.style.alignItems = 'center';
+        li.style.gap = '6px';
+        li.innerHTML = `
+          <input type="text" value="${cat}" data-idx="${idx}" style="flex:1;">
+          <button type="button" data-idx="${idx}" class="delCatBtn">刪除</button>
+        `;
+        categoryList.appendChild(li);
+      });
+    }
+    // 新增分類
+    addCategoryBtn.onclick = () => {
+      const val = newCategoryInput.value.trim();
+      if (!val) return;
+      let cats = getCategories();
+      if (!cats.includes(val)) {
+        cats.push(val);
+        setCategories(cats);
+        renderCategoryList();
+        renderCategoryOptions();
+        newCategoryInput.value = '';
+      }
+    };
+    // 刪除分類
+    categoryList.addEventListener('click', e => {
+      if (e.target.classList.contains('delCatBtn')) {
+        const idx = +e.target.dataset.idx;
+        let cats = getCategories();
+        cats.splice(idx, 1);
+        setCategories(cats);
+        renderCategoryList();
+        renderCategoryOptions();
+      }
+    });
+    // 修改分類
+    categoryList.addEventListener('input', e => {
+      if (e.target.tagName === 'INPUT') {
+        const idx = +e.target.dataset.idx;
+        let cats = getCategories();
+        cats[idx] = e.target.value;
+        setCategories(cats);
+        renderCategoryOptions();
+      }
+    });
+    // 完成關閉
+    document.getElementById('categoryForm').onsubmit = e => {
+      e.preventDefault();
+      categoryDialog.close();
+    };
+    // 若 localStorage 沒有分類，初始化一次
+    if (!localStorage.getItem('novel-categories')) {
+      setCategories(defaultCategories);
+    }
+
+    // ====== 閱讀頁功能 ======
+    const pageReaderNovel = document.getElementById('page-reader-novel');
+    const readerContent = document.getElementById('readerContent');
+    const readerTools = document.getElementById('readerTools');
+    const readerFontSize = document.getElementById('readerFontSize');
+    const readerLineHeight = document.getElementById('readerLineHeight');
+    const readerBgColor = document.getElementById('readerBgColor');
+    const closeReaderBtn = document.getElementById('closeReaderBtn');
+    let readerColorMap = { '#fff': '#222', '#f5f5dc': '#222', '#222': '#eee', '#e3f2fd': '#222' };
+    // 點擊小說進入閱讀頁
+    novelList.addEventListener('click', e => {
+      let item = e.target.closest('.novel-item');
+      if (!item) return;
+      let id = item.dataset.id;
+      let novel = novelsCache.find(n => n.id === id);
+      if (!novel) return;
+      showReaderPage(novel);
+    });
+    function showReaderPage(novel) {
+      readerContent.innerHTML = `
+        <div style="font-size:1.3em;font-weight:bold;margin-bottom:8px;">${novel.name}</div>
+        <div style="color:#888;font-size:0.95em;margin-bottom:16px;">作者：${novel.author}　分類：${novel.category}</div>
+        <div class="novel-content" id="readerNovelContent">${novel.content}</div>
+      `;
+      // 套用預設
+      readerFontSize.value = localStorage.getItem('reader-font-size') || 18;
+      readerLineHeight.value = localStorage.getItem('reader-line-height') || 1.6;
+      readerBgColor.value = localStorage.getItem('reader-bg') || '#fff';
+      applyReaderStyle();
+      pageReaderNovel.style.display = '';
+      document.body.style.overflow = 'hidden';
+      readerTools.classList.remove('hide');
+    }
+    function applyReaderStyle() {
+      const fs = readerFontSize.value;
+      const lh = readerLineHeight.value;
+      const bg = readerBgColor.value;
+      // 只調整內文
+      const contentEl = document.getElementById('readerNovelContent');
+      if (contentEl) {
+        contentEl.style.fontSize = fs + 'px';
+        contentEl.style.lineHeight = lh;
+      }
+      pageReaderNovel.style.setProperty('--reader-bg', bg);
+      pageReaderNovel.style.setProperty('--reader-color', readerColorMap[bg] || '#222');
+      localStorage.setItem('reader-font-size', fs);
+      localStorage.setItem('reader-line-height', lh);
+      localStorage.setItem('reader-bg', bg);
+    }
+    readerFontSize.addEventListener('change', applyReaderStyle);
+    readerLineHeight.addEventListener('change', applyReaderStyle);
+    readerBgColor.addEventListener('change', applyReaderStyle);
+    // 關閉閱讀頁
+    closeReaderBtn.onclick = () => {
+      pageReaderNovel.style.display = 'none';
+      document.body.style.overflow = '';
+    };
+    // 點擊螢幕隱藏/顯示工具列
+    let lastTap = 0;
+    pageReaderNovel.addEventListener('click', e => {
+      // 避免點擊工具列本身
+      if (e.target.closest('#readerTools')) return;
+      if (readerTools.classList.contains('hide')) {
+        readerTools.classList.remove('hide');
+      } else {
+        readerTools.classList.add('hide');
+      }
+    });
+    // 進入閱讀頁時自動顯示工具列
+    // ... existing code ...
+  </script>
+</body>
+</html> 
