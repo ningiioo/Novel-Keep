@@ -7,16 +7,87 @@
   <style>
     body { font-family: sans-serif; background: #f8f8f8; margin: 0; padding: 0; }
     .container { max-width: 700px; margin: 40px auto; background: #fff; padding: 32px; border-radius: 12px; box-shadow: 0 2px 8px #0001; }
-    h1 { text-align: center; }
+    h2 { text-align: center; }
     form { margin-bottom: 32px; }
     label { display: block; margin-top: 16px; }
     input, select, textarea { width: 100%; padding: 8px; margin-top: 4px; border-radius: 4px; border: 1px solid #ccc; }
     button { margin-top: 16px; padding: 10px 24px; border: none; background: #4f8cff; color: #fff; border-radius: 4px; cursor: pointer; }
     .novel-list { margin-top: 32px; }
-    .novel-item { background: #f0f4ff; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
-    .novel-title { font-size: 1.2em; font-weight: bold; }
-    .novel-meta { color: #666; font-size: 0.95em; margin-bottom: 8px; }
-    .novel-content { white-space: pre-wrap; }
+    .novel-item {
+      background: none;
+      border-radius: 0;
+      box-shadow: none;
+      padding: 0 0 25px 0;
+      border: none;
+      border-bottom: 1px solid #d0d3d7;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-bottom: 16px;
+    }
+    .novel-item:last-child {
+      border-bottom: none;
+    }
+    .novel-row {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-top: 0;
+      margin-bottom: 0;
+      padding: 0 24px;
+    }
+    .novel-title {
+      font-size: 1em;
+      font-weight: bold;
+      color: #111;
+      margin: 0;
+      padding: 0;
+      line-height: 1.2;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+    }
+    /* Date */
+    .novel-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 48px;
+      color: #888;
+      font-size: 0.9em;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+    }
+    .tag-list {
+      display: flex;
+      gap: 5px;
+      margin: 0 0 0 0;
+      padding: 0;
+    }
+    .tag-badge {
+      border-radius: 999px;
+      padding: 8px 32px;
+      font-size: 0.9em;
+      border: none;
+      background: #f2f8fc;
+      color: #4a6a7c;
+      font-weight: 500;
+      letter-spacing: 1px;
+    }
+    .tag-badge.urgent {
+      background: #fff8e1;
+      color: #b48a00;
+    }
+    .novel-desc {
+      color: #888;
+      font-size: 0.9em;
+      margin: 16px 24px 0 24px;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: normal;
+      line-height: 1.2;
+    }
     .bottom-nav {
       position: fixed;
       left: 0; right: 0; bottom: 0;
@@ -108,32 +179,6 @@
       background: #e6f0ff;
       color: #4f8cff;
     }
-    .tag-list {
-      display: inline-flex;
-      gap: 8px;
-      margin-left: 8px;
-      vertical-align: middle;
-    }
-    .tag-badge {
-      display: inline-block;
-      padding: 2px 18px;
-      border-radius: 20px;
-      font-size: 1em;
-      border: 2px solid #7fd0e8;
-      color: #21809b;
-      background: #eaf6fd;
-      font-weight: 500;
-      letter-spacing: 1px;
-    }
-    .tag-badge.urgent {
-      border-color: #ffe08a;
-      color: #b48a00;
-      background: #fff8e1;
-    }
-    .tag-badge.small {
-      font-size: 0.78em;
-      padding: 1px 10px;
-    }
     /* 書庫小說列表字體縮小 */
     .novel-list .novel-item {
       font-size: 0.97em;
@@ -159,7 +204,7 @@
 <body>
   <div class="container">
     <div id="page-reader" class="page">
-      <h1>小說閱讀器</h1>
+      <h2>小說閱讀器</h2>
       <form id="novelForm">
         <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
           <label style="cursor:pointer;">
@@ -178,12 +223,11 @@
         <label for="url">網址</label>
         <input type="url" id="url" placeholder="https://...">
         <label for="desc">簡介</label>
-        <textarea id="desc" rows="2" placeholder="簡短介紹"></textarea>
+        <textarea id="desc" rows="2"></textarea>
         <label for="date">日期</label>
         <input type="date" id="date">
         <label for="tags">標籤 </label>
-        <input type="text" id="tags" placeholder="如：奇幻,冒險,經典">
-        <div id="allTagsList" style="margin:8px 0 16px 0;display:flex;flex-wrap:wrap;gap:8px;"></div>
+        <input type="text" id="tags" placeholder="標籤以逗號分類">
         <label for="content">內文</label>
         <textarea id="content" rows="6" required></textarea>
         <button type="submit">新增小說</button>
@@ -204,10 +248,9 @@
         <div class="novel-list" id="allListView"></div>
       </div>
       <div id="libNovelsByCatView" style="display:none;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-          <h2 id="catTitle" style="flex:1;margin:0;"></h2>
-          <button type="button" id="backToCategoryBtn">← 返回分類</button>
-          <button type="button" id="toggleEditModeBtn" style="padding:4px 12px;">編輯</button>
+        <div class="library-header">
+          <h2 id="catTitle"></h2>
+          <button type="button" id="toggleEditModeBtn" class="edit-category-btn">編輯</button>
         </div>
         <div class="novel-list" id="novelsByCatList"></div>
       </div>
@@ -383,6 +426,14 @@
         document.getElementById('page-' + p).style.display = (p === page) ? '' : 'none';
       });
       navBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.page === page));
+      // 每次切到書庫都顯示分類首頁
+      if (page === 'library') {
+        libCategoryView.style.display = '';
+        libAllView.style.display = 'none';
+        libNovelsByCatView.style.display = 'none';
+        document.getElementById('libraryTitle').style.display = '';
+        document.getElementById('libraryTopBar').style.display = '';
+      }
     }
     navBtns.forEach(btn => {
       btn.addEventListener('click', () => showPage(btn.dataset.page));
@@ -545,11 +596,14 @@
     // 點擊小說進入閱讀頁
     function showReaderPage(novel) {
       readerContent.innerHTML = `
-        <div style="font-size:1.3em;font-weight:bold;margin-bottom:8px;">${novel.name}${renderTagBadges(novel.tags, true)}</div>
-        <div style="color:#888;font-size:0.95em;margin-bottom:8px;">作者：${novel.author}　分類：${novel.category}</div>
-        <div style="color:#888;font-size:0.95em;margin-bottom:8px;">${novel.date ? '日期：'+novel.date+'　' : ''}</div>
-        <div style="color:#888;font-size:0.95em;margin-bottom:8px;">${novel.url ? `<a href="${novel.url}" target="_blank">連結</a>` : ''}</div>
-        <div style="color:#888;font-size:0.95em;margin-bottom:16px;">${novel.desc || ''}</div>
+        <div style="font-size:1.2em;font-weight:bold;margin-bottom:8px;display:flex;align-items:center;gap:12px;">
+          <span>${novel.name}</span>
+        </div>
+        <div style="color:#888;font-size:0.8em;margin-bottom:8px;">${(novel.tags||[]).map(tag => `#${tag}`).join(' ')}</div>
+        <div style="color:#888;font-size:0.8em;margin-bottom:8px;">作者：${novel.author}　分類：${novel.category}</div>
+        <div style="color:#888;font-size:0.8em;margin-bottom:8px;">${novel.date ? '日期：'+novel.date+'　' : ''}</div>
+        <div style="color:#888;font-size:0.8em;margin-bottom:8px;">${novel.url ? `<a href="${novel.url}" target="_blank">連結</a>` : ''}</div>
+        <div style="color:#888;font-size:0.8em;margin-bottom:16px;">${novel.desc || ''}</div>
         <div class="novel-content" id="readerNovelContent">${novel.content}</div>
       `;
       // 套用預設
@@ -609,7 +663,6 @@
     const allListView = document.getElementById('allListView');
     const novelsByCatList = document.getElementById('novelsByCatList');
     const catTitle = document.getElementById('catTitle');
-    const backToCategoryBtn = document.getElementById('backToCategoryBtn');
     const toggleEditModeBtn = document.getElementById('toggleEditModeBtn');
     let currentLibMode = 'category';
     let editMode = false;
@@ -625,12 +678,6 @@
     }
     libByCategoryBtn.onclick = () => switchLibMode('category');
     libAllBtn.onclick = () => switchLibMode('all');
-    backToCategoryBtn.onclick = () => {
-      libNovelsByCatView.style.display = 'none';
-      libCategoryView.style.display = '';
-      document.getElementById('libraryTitle').style.display = '';
-      document.getElementById('libraryTopBar').style.display = '';
-    };
     // 書庫資料渲染
     function renderTagBadges(tags, small) {
       if (!tags || !tags.length) return '';
@@ -685,16 +732,20 @@
     function renderNovelsByCatList(cat) {
       const novels = novelsCache.filter(n=>n.category===cat);
       novelsByCatList.innerHTML = '';
-      novels.forEach(novel => {
+      novels.forEach((novel, idx) => {
         novelsByCatList.innerHTML += `
-          <div class="novel-item" data-id="${novel.id}" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
-            <div>
-              <div class="novel-title">${novel.name}${renderTagBadges(novel.tags, true)}</div>
-              <div class="novel-meta">作者：${novel.author}　分類：${novel.category}</div>
-              <div class="novel-meta">${novel.date ? '日期：'+novel.date+'　' : ''}</div>
-              <div class="novel-meta">${novel.url ? `<a href="${novel.url}" target="_blank">連結</a>` : ''}</div>
-              <div class="novel-meta desc">${novel.desc || ''}</div>
+          <div class="novel-item" data-id="${novel.id}" style="border-bottom:${idx===novels.length-1?'none':'3px solid #e3e8ee'};">
+            <div class="novel-row">
+              <span class="novel-title">${novel.name}</span>
+              <span class="novel-meta-row">
+                <span>${novel.date || ''}</span>
+              </span>
             </div>
+            <div style="display:flex;align-items:center;margin:10px 0 0 24px;gap:20px;">
+              <span style="color:#888; font-size:0.9em;">${novel.author || ''}</span>
+              <div class="tag-list">${(novel.tags||[]).map(tag => `<span class=\"tag-badge${tag==='急'?' urgent':''}\">${tag}</span>`).join('')}</div>
+            </div>
+            <div class="novel-desc">${novel.desc || ''}</div>
             <span class="novel-actions" style="${editMode ? '' : 'display:none;'}">
               <button class="novel-action-btn edit-btn" title="編輯" data-id="${novel.id}">✏️</button>
               <button class="novel-action-btn delete-btn" title="刪除" data-id="${novel.id}">🗑️</button>
@@ -729,6 +780,7 @@
         document.getElementById('novelForm').dataset.editId = id;
         // 捨棄原本 submit 事件，改為更新
         novelSubmitBtn.textContent = '完成編輯';
+        return;
       }
       // 刪除
       if (e.target.classList.contains('delete-btn')) {
@@ -738,14 +790,17 @@
         if (!confirm(`確定要刪除「${novel.name}」嗎？此操作無法復原。`)) return;
         // 刪除 firebase
         await deleteDoc(doc(novelsCol, id));
+        return;
       }
-      // 點擊 novel-item 其他區域打開閱讀頁
-      const item = e.target.closest('.novel-item');
-      if (!item) return;
-      const id = item.dataset.id;
-      const novel = novelsCache.find(n => n.id === id);
-      if (!novel) return;
-      showReaderPage(novel);
+      // 只有點擊小說標題才開啟閱讀器
+      if (e.target.classList.contains('novel-title')) {
+        const item = e.target.closest('.novel-item');
+        if (!item) return;
+        const id = item.dataset.id;
+        const novel = novelsCache.find(n => n.id === id);
+        if (!novel) return;
+        showReaderPage(novel);
+      }
     });
 
     // ====== 標籤記憶與選擇 ======
