@@ -606,8 +606,8 @@
         <div style="color:#888;font-size:0.8em;margin-bottom:8px;">作者：${novel.author}　分類：${novel.category}</div>
         <div style="color:#888;font-size:0.8em;margin-bottom:8px;">${novel.date ? '日期：'+novel.date+'　' : ''}</div>
         <div style="color:#888;font-size:0.8em;margin-bottom:8px;">${novel.url ? `<a href="${novel.url}" target="_blank">連結</a>` : ''}</div>
-        <div style="color:#888;font-size:0.8em;margin-bottom:16px;">${novel.desc || ''}</div>
-        <div class="novel-content" id="readerNovelContent">${novel.content}</div>
+        <div style="color:#888;font-size:0.8em;margin-bottom:16px;">${(novel.desc||'').replace(/\r?\n/g, '<br>')}</div>
+        <div class="novel-content" id="readerNovelContent">${(novel.content||'').replace(/\r?\n/g, '<br>')}</div>
       `;
       // 套用預設
       readerFontSize.value = localStorage.getItem('reader-font-size') || 18;
@@ -710,7 +710,7 @@
             <div class="novel-meta">作者：${novel.author}　分類：${novel.category}</div>
             <div class="novel-meta">${novel.date ? '日期：'+novel.date+'　' : ''}</div>
             <div class="novel-meta">${novel.url ? `<a href="${novel.url}" target="_blank">連結</a>` : ''}</div>
-            <div class="novel-meta desc">${novel.desc || ''}</div>
+            <div class="novel-meta desc">${(novel.desc||'').replace(/\r?\n/g, '<br>')}</div>
           </div>
         `;
       });
@@ -748,7 +748,7 @@
               <span style="color:#888; font-size:0.9em;">${novel.author || ''}</span>
               <div class="tag-list">${(novel.tags||[]).map(tag => `<span class=\"tag-badge${tag==='急'?' urgent':''}\">${tag}</span>`).join('')}</div>
             </div>
-            <div class="novel-desc">${novel.desc || ''}</div>
+            <div class="novel-desc">${(novel.desc||'').replace(/\r?\n/g, '<br>')}</div>
             <span class="novel-actions" style="${editMode ? '' : 'display:none;'}">
               <button class="novel-action-btn edit-btn" title="編輯" data-id="${novel.id}">✏️</button>
               <button class="novel-action-btn delete-btn" title="刪除" data-id="${novel.id}">🗑️</button>
@@ -843,42 +843,55 @@
     const importJsonBtn = document.getElementById('importJsonBtn');
     const importJsonInput = document.getElementById('importJsonInput');
     importJsonBtn.onclick = () => importJsonInput.click();
+    importJsonInput.setAttribute('multiple', 'multiple');
     importJsonInput.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      try {
-        const text = await file.text();
-        const data = JSON.parse(text);
-        if (data.name) document.getElementById('name').value = data.name;
-        if (data.author) document.getElementById('author').value = data.author;
-        if (data.url) document.getElementById('url').value = data.url;
-        if (data.tags) document.getElementById('tags').value = Array.isArray(data.tags) ? data.tags.join(', ') : data.tags;
-        if (data.desc) document.getElementById('desc').value = data.desc;
-        if (data.content) document.getElementById('content').value = data.content;
-        // 新增分類（若有）
-        if (data.category) {
-          let cats = getAllCategories();
-          if (!cats.includes(data.category)) {
-            let localCats = JSON.parse(localStorage.getItem('novel-categories') || 'null') || defaultCategories;
-            localCats.push(data.category);
-            localStorage.setItem('novel-categories', JSON.stringify(localCats));
-            renderCategoryOptions();
+      const files = Array.from(e.target.files);
+      if (!files.length) return;
+      for (const file of files) {
+        try {
+          const text = await file.text();
+          const data = JSON.parse(text);
+          // 若為陣列，批次匯入
+          const novels = Array.isArray(data) ? data : [data];
+          for (const novel of novels) {
+            if (novel.name) document.getElementById('name').value = novel.name;
+            if (novel.author) document.getElementById('author').value = novel.author;
+            if (novel.url) document.getElementById('url').value = novel.url;
+            if (novel.tags) document.getElementById('tags').value = Array.isArray(novel.tags) ? novel.tags.join(', ') : novel.tags;
+            if (novel.desc) document.getElementById('desc').value = novel.desc;
+            if (novel.content) document.getElementById('content').value = novel.content.replace(/\\n/g, '\n');
+            // 新增分類（若有）
+            if (novel.category) {
+              let cats = getAllCategories();
+              if (!cats.includes(novel.category)) {
+                let localCats = JSON.parse(localStorage.getItem('novel-categories') || 'null') || defaultCategories;
+                localCats.push(novel.category);
+                localStorage.setItem('novel-categories', JSON.stringify(localCats));
+                renderCategoryOptions();
+              }
+              document.getElementById('category').value = novel.category;
+            }
+            // 日期格式轉換
+            if (novel.date) {
+              let d = novel.date.trim();
+              // 支援 YYYY.M.D、YYYY.MM.DD、YYYY.M.DD、YYYY.MM.D
+              const match = d.match(/^(\d{4})\.(\d{1,2})\.(\d{1,2})$/);
+              if (match) {
+                const y = match[1];
+                const m = match[2].padStart(2, '0');
+                const day = match[3].padStart(2, '0');
+                d = `${y}-${m}-${day}`;
+              }
+              document.getElementById('date').value = d;
+            }
+            // 自動送出表單
+            document.getElementById('novelForm').dispatchEvent(new Event('submit'));
           }
-          document.getElementById('category').value = data.category;
+        } catch (err) {
+          alert('JSON 格式錯誤或檔案無法讀取: ' + file.name);
         }
-        // 日期格式轉換
-        if (data.date) {
-          let d = data.date.trim();
-          // 若為 YYYY.MM.DD，轉為 YYYY-MM-DD
-          if (/^\d{4}\.\d{2}\.\d{2}$/.test(d)) {
-            d = d.replace(/\./g, '-');
-          }
-          document.getElementById('date').value = d;
-        }
-        showPage('reader');
-      } catch (err) {
-        alert('JSON 格式錯誤或檔案無法讀取');
       }
+      showPage('reader');
     };
   </script>
 </body>
