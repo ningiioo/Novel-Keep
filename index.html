@@ -497,6 +497,7 @@
     }
     function renderCategoryOptions() {
       const cats = getAllCategories();
+      const prev = categorySelect.value;
       categorySelect.innerHTML = '';
       cats.forEach(cat => {
         const opt = document.createElement('option');
@@ -504,8 +505,10 @@
         opt.textContent = cat;
         categorySelect.appendChild(opt);
       });
-      // 預設選中『未分類』
-      if (cats.includes('未分類')) {
+      // 若目前有選擇分類，保留原選擇
+      if (cats.includes(prev)) {
+        categorySelect.value = prev;
+      } else if (cats.includes('未分類')) {
         categorySelect.value = '未分類';
       } else if (cats.length > 0) {
         categorySelect.value = cats[0];
