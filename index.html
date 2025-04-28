@@ -10,8 +10,8 @@
     h2 { text-align: center; }
     form { margin-bottom: 32px; }
     label { display: block; margin-top: 16px; }
-    input, select, textarea { width: 100%; padding: 8px; margin-top: 4px; border-radius: 4px; border: 1px solid #ccc; }
-    button { margin-top: 16px; padding: 10px 24px; border: none; background: #4f8cff; color: #fff; border-radius: 4px; cursor: pointer; }
+    input, select, textarea { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
+    button { padding: 10px 24px; border: none; background: #4f8cff; color: #fff; border-radius: 4px; cursor: pointer; }
     .novel-list { margin-top: 32px; }
     .novel-item {
       background: none;
@@ -199,6 +199,19 @@
       text-overflow: ellipsis;
       white-space: normal;
     }
+    /* 批次分類選取時背景變暗 */
+    .novel-item.selected {
+      background: #e3e8ee !important;
+    }
+    #batchClassifySelect {
+      width: 60%;
+      height: 30px;
+      font-size: 0.7em;   
+    }
+    #batchClassifyApplyBtn, #batchClassifyCancelBtn {
+      width: 20%;
+      height: 30px;
+    }
   </style>
 </head>
 <body>
@@ -206,12 +219,6 @@
     <div id="page-reader" class="page">
       <h2>小說閱讀器</h2>
       <form id="novelForm">
-        <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-          <label style="cursor:pointer;">
-            <input type="file" id="importJsonInput" accept="application/json" style="display:none;">
-            <button type="button" id="importJsonBtn" style="margin-bottom:0;">匯入 JSON</button>
-          </label>
-        </div>
         <label for="name">小說名稱</label>
         <input type="text" id="name" required>
         <label for="author">作者</label>
@@ -248,14 +255,20 @@
         <div class="novel-list" id="allListView"></div>
       </div>
       <div id="libNovelsByCatView" style="display:none;">
-        <div class="library-header">
+        <div class="library-header" style="display:flex;align-items:center;justify-content:space-between;">
           <h2 id="catTitle"></h2>
-          <button type="button" id="toggleEditModeBtn" class="edit-category-btn">編輯</button>
+          <span id="batchClassifyBtn" style="color:#4f8cff;cursor:pointer;font-size:0.9em;">批次分類</span>
+        </div>
+        <div id="batchClassifyBar" style="display:none;align-items:center;gap:8px;">
+          <select id="batchClassifySelect"></select>
+          <button id="batchClassifyApplyBtn" style="padding:4px 4px; font-size:0.7em;background:#515151;color:#fff;">套用</button>
+          <button id="batchClassifyCancelBtn" style="padding:4px 4px; font-size:0.7em;background:#515151;color:#fff;">取消</button>
         </div>
         <div class="novel-list" id="novelsByCatList"></div>
       </div>
     </div>
     <div id="page-reader-novel" class="page" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100vw;height:100vh;background:var(--reader-bg,#fff);color:var(--reader-color,#222);overflow:auto;">
+      <button id="readerEditBtn" style="position:absolute;top:18px;right:24px;z-index:102;background:none;border:none;color:#4f8cff;font-size:1em;cursor:pointer;">編輯</button>
       <div id="readerContent" style="max-width:700px;margin:0 auto;padding:32px 16px 80px 16px;"></div>
       <div id="readerTools" style="position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,0.98);border-top:1px solid #ddd;padding:12px 0;display:flex;gap:16px;justify-content:center;align-items:center;transition:transform 0.3s;z-index:101;">
         <label>字體
@@ -313,6 +326,12 @@
       </div>
       <div style="margin-bottom: 24px;">
         <button type="button" id="editCategoryBtn" style="padding:6px 18px;">管理分類</button>
+      </div>
+      <div style="margin-bottom: 24px;">
+        <label style="cursor:pointer;">
+          <input type="file" id="importJsonInput" accept="application/json" style="display:none;" multiple>
+          <button type="button" id="importJsonBtn" style="margin-bottom:0;">匯入 JSON</button>
+        </label>
       </div>
     </div>
     <nav class="bottom-nav">
@@ -596,8 +615,29 @@
     const readerBgColor = document.getElementById('readerBgColor');
     const closeReaderBtn = document.getElementById('closeReaderBtn');
     let readerColorMap = { '#fff': '#222', '#f5f5dc': '#222', '#222': '#eee', '#e3f2fd': '#222' };
-    // 點擊小說進入閱讀頁
+    let readerEditMode = false;
+    let currentReaderNovelId = null;
+    const readerEditBtn = document.getElementById('readerEditBtn');
+    readerEditBtn.onclick = async () => {
+      if (!readerEditMode) {
+        // 進入編輯模式
+        readerEditMode = true;
+        readerEditBtn.textContent = '完成';
+        showReaderEditForm();
+      } else {
+        // 完成編輯，儲存
+        await saveReaderEditForm();
+        readerEditMode = false;
+        readerEditBtn.textContent = '編輯';
+        // 重新顯示閱讀頁
+        const novel = novelsCache.find(n => n.id === currentReaderNovelId);
+        if (novel) showReaderPage(novel);
+      }
+    };
     function showReaderPage(novel) {
+      currentReaderNovelId = novel.id;
+      readerEditMode = false;
+      readerEditBtn.textContent = '編輯';
       readerContent.innerHTML = `
         <div style="font-size:1.2em;font-weight:bold;margin-bottom:8px;display:flex;align-items:center;gap:12px;">
           <span>${novel.name}</span>
@@ -666,9 +706,7 @@
     const allListView = document.getElementById('allListView');
     const novelsByCatList = document.getElementById('novelsByCatList');
     const catTitle = document.getElementById('catTitle');
-    const toggleEditModeBtn = document.getElementById('toggleEditModeBtn');
     let currentLibMode = 'category';
-    let editMode = false;
     function switchLibMode(mode) {
       currentLibMode = mode;
       libByCategoryBtn.classList.toggle('active', mode==='category');
@@ -685,8 +723,7 @@
     function renderTagBadges(tags, small) {
       if (!tags || !tags.length) return '';
       return `<span class="tag-list">` + tags.map(tag => {
-        const urgent = tag === '急' || tag.toLowerCase() === 'urgent';
-        return `<span class="tag-badge${urgent ? ' urgent' : ''}${small ? ' small' : ''}">${tag}</span>`;
+        return `<span class="tag-badge${small ? ' small' : ''}">${tag}</span>`;
       }).join('') + `</span>`;
     }
     function renderLibrary(novels) {
@@ -726,18 +763,54 @@
       catTitle.textContent = cat;
       libCategoryView.style.display = 'none';
       libNovelsByCatView.style.display = '';
-      editMode = false;
-      toggleEditModeBtn.textContent = '編輯';
       renderNovelsByCatList(cat);
       document.getElementById('libraryTitle').style.display = 'none';
       document.getElementById('libraryTopBar').style.display = 'none';
     }
+    // 2. JS: 批次分類模式
+    let batchClassifyMode = false;
+    let batchSelectedIds = [];
+    const batchClassifyBtn = document.getElementById('batchClassifyBtn');
+    const batchClassifyBar = document.getElementById('batchClassifyBar');
+    const batchClassifySelect = document.getElementById('batchClassifySelect');
+    const batchClassifyApplyBtn = document.getElementById('batchClassifyApplyBtn');
+    const batchClassifyCancelBtn = document.getElementById('batchClassifyCancelBtn');
+    batchClassifyBtn.onclick = () => {
+      batchClassifyMode = true;
+      batchClassifyBar.style.display = 'flex';
+      renderNovelsByCatList(catTitle.textContent);
+      // 填充分類下拉
+      const cats = getAllCategories();
+      batchClassifySelect.innerHTML = cats.map(cat => `<option value="${cat}">${cat}</option>`).join('');
+    };
+    batchClassifyCancelBtn.onclick = () => {
+      batchClassifyMode = false;
+      batchSelectedIds = [];
+      batchClassifyBar.style.display = 'none';
+      renderNovelsByCatList(catTitle.textContent);
+    };
+    batchClassifyApplyBtn.onclick = async () => {
+      const newCat = batchClassifySelect.value;
+      for (const id of batchSelectedIds) {
+        await updateDoc(doc(novelsCol, id), { category: newCat });
+        const idx = novelsCache.findIndex(n => n.id === id);
+        if (idx !== -1) novelsCache[idx].category = newCat;
+      }
+      batchClassifyMode = false;
+      batchSelectedIds = [];
+      batchClassifyBar.style.display = 'none';
+      renderLibrary(novelsCache);
+      renderNovelsByCatList(newCat);
+      catTitle.textContent = newCat;
+    };
+    // 3. renderNovelsByCatList 內，批次模式下不顯示勾選框，點擊 novel-item 切換選取
     function renderNovelsByCatList(cat) {
       const novels = novelsCache.filter(n=>n.category===cat);
       novelsByCatList.innerHTML = '';
       novels.forEach((novel, idx) => {
+        const selected = batchClassifyMode && batchSelectedIds.includes(novel.id);
         novelsByCatList.innerHTML += `
-          <div class="novel-item" data-id="${novel.id}" style="border-bottom:${idx===novels.length-1?'none':'3px solid #e3e8ee'};">
+          <div class="novel-item${selected ? ' selected' : ''}" data-id="${novel.id}" style="border-bottom:${idx===novels.length-1?'none':'3px solid #e3e8ee'};">
             <div class="novel-row">
               <span class="novel-title">${novel.name}</span>
               <span class="novel-meta-row">
@@ -746,52 +819,41 @@
             </div>
             <div style="display:flex;align-items:center;margin:10px 0 0 24px;gap:20px;">
               <span style="color:#888; font-size:0.9em;">${novel.author || ''}</span>
-              <div class="tag-list">${(novel.tags||[]).map(tag => `<span class=\"tag-badge${tag==='急'?' urgent':''}\">${tag}</span>`).join('')}</div>
+              <div class="tag-list">${(novel.tags||[]).map(tag => `<span class=\"tag-badge\">${tag}</span>`).join('')}</div>
             </div>
             <div class="novel-desc">${(novel.desc||'').replace(/\r?\n/g, '<br>')}</div>
-            <span class="novel-actions" style="${editMode ? '' : 'display:none;'}">
-              <button class="novel-action-btn edit-btn" title="編輯" data-id="${novel.id}">✏️</button>
+            <span class="novel-actions" style="display:none;">
               <button class="novel-action-btn delete-btn" title="刪除" data-id="${novel.id}">🗑️</button>
             </span>
           </div>
         `;
       });
+      // 綁定選取事件
+      if (batchClassifyMode) {
+        novelsByCatList.querySelectorAll('.novel-item').forEach(item => {
+          item.onclick = (e) => {
+            const id = item.dataset.id;
+            if (batchSelectedIds.includes(id)) {
+              batchSelectedIds = batchSelectedIds.filter(x => x !== id);
+              item.classList.remove('selected');
+            } else {
+              batchSelectedIds.push(id);
+              item.classList.add('selected');
+            }
+          };
+        });
+      }
     }
-    toggleEditModeBtn.onclick = () => {
-      editMode = !editMode;
-      toggleEditModeBtn.textContent = editMode ? '完成' : '編輯';
-      renderNovelsByCatList(catTitle.textContent);
-    };
     // 編輯/刪除小說事件代理
     novelsByCatList.addEventListener('click', async (e) => {
-      // 編輯
-      if (e.target.classList.contains('edit-btn')) {
-        const id = e.target.dataset.id;
-        const novel = novelsCache.find(n => n.id === id);
-        if (!novel) return;
-        // 將小說資料填入表單，切換到閱讀器頁
-        showPage('reader');
-        document.getElementById('name').value = novel.name;
-        document.getElementById('author').value = novel.author;
-        document.getElementById('category').value = novel.category;
-        document.getElementById('url').value = novel.url || '';
-        document.getElementById('desc').value = novel.desc || '';
-        document.getElementById('date').value = novel.date || '';
-        document.getElementById('tags').value = (novel.tags||[]).join(', ');
-        document.getElementById('content').value = novel.content;
-        // 編輯模式: 記錄正在編輯的 id
-        document.getElementById('novelForm').dataset.editId = id;
-        // 捨棄原本 submit 事件，改為更新
-        novelSubmitBtn.textContent = '完成編輯';
-        return;
-      }
+      // 批次分類模式下，點擊 novel-item 不進入閱讀頁
+      if (batchClassifyMode) return;
       // 刪除
       if (e.target.classList.contains('delete-btn')) {
         const id = e.target.dataset.id;
         const novel = novelsCache.find(n => n.id === id);
         if (!novel) return;
         if (!confirm(`確定要刪除「${novel.name}」嗎？此操作無法復原。`)) return;
-        // 刪除 firebase
         await deleteDoc(doc(novelsCol, id));
         return;
       }
@@ -893,6 +955,51 @@
       }
       showPage('reader');
     };
+
+    function showReaderEditForm() {
+      const novel = novelsCache.find(n => n.id === currentReaderNovelId);
+      if (!novel) return;
+      // 取得所有分類
+      const cats = getAllCategories();
+      const catOptions = cats.map(cat => `<option value="${cat}"${cat===novel.category?' selected':''}>${cat}</option>`).join('');
+      readerContent.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:12px;max-width:600px;margin:0 auto;">
+          <label>小說名稱<input type="text" id="editName" value="${novel.name||''}" style="width:100%;"></label>
+          <label>作者<input type="text" id="editAuthor" value="${novel.author||''}" style="width:100%;"></label>
+          <label>分類<select id="editCategory" style="width:100%;">${catOptions}</select></label>
+          <label>網址<input type="url" id="editUrl" value="${novel.url||''}" style="width:100%;"></label>
+          <label>標籤<input type="text" id="editTags" value="${(novel.tags||[]).join(', ')}" style="width:100%;"></label>
+          <label>日期<input type="date" id="editDate" value="${novel.date||''}" style="width:100%;"></label>
+          <label>簡介<textarea id="editDesc" rows="2" style="width:100%;">${novel.desc||''}</textarea></label>
+          <label>內文<textarea id="editContent" rows="8" style="width:100%;">${novel.content||''}</textarea></label>
+        </div>
+      `;
+    }
+    async function saveReaderEditForm() {
+      const id = currentReaderNovelId;
+      if (!id) return;
+      const name = document.getElementById('editName').value.trim();
+      const author = document.getElementById('editAuthor').value.trim();
+      const category = document.getElementById('editCategory').value.trim();
+      const url = document.getElementById('editUrl').value.trim();
+      const tags = document.getElementById('editTags').value.split(',').map(t=>t.trim()).filter(Boolean);
+      const date = document.getElementById('editDate').value;
+      const desc = document.getElementById('editDesc').value.trim();
+      const content = document.getElementById('editContent').value.trim();
+      await updateDoc(doc(novelsCol, id), { name, author, category, url, tags, date, desc, content });
+      // 立即更新 novelsCache
+      const idx = novelsCache.findIndex(n => n.id === id);
+      if (idx !== -1) {
+        novelsCache[idx] = { ...novelsCache[idx], name, author, category, url, tags, date, desc, content };
+      }
+      // 立即重新渲染書庫
+      renderLibrary(novelsCache);
+      // 若目前在分類頁，且分類已變，重新渲染分類列表
+      if (document.getElementById('libNovelsByCatView').style.display !== 'none') {
+        renderNovelsByCatList(category);
+        document.getElementById('catTitle').textContent = category;
+      }
+    }
   </script>
 </body>
 </html> 
